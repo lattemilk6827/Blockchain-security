@@ -1,0 +1,2 @@
+cryptography>=42   # OpenSSL bindings: used only to CROSS-CHECK our ECDSA implementation
+pytest>=7          # test runner
