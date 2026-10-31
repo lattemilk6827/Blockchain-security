@@ -60,8 +60,8 @@ The code isn't constant-time, so it is only for these experiments and should not
 
 ```
 pip install -r requirements.txt   # if pip isn't recognised: py -m pip install -r requirements.txt
-python app.py                     # web page at http://localhost:8000
-python demo.py                    # same experiments in the terminal
+py app.py                         # web page at http://localhost:8000
+py demo.py                        # same experiments in the terminal
 ```
 On Windows, use `py` instead of `python` if it isn't recognised.
 
