@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Signature Experiments</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --bg: #f6f5f1; --card: #ffffff; --ink: #1d1f24; --muted: #686c75;
+    --line: #e3e1da; --accent: #2f5d8a; --accent-ink: #ffffff;
+    --pass: #1f7a4d; --pass-bg: #e3f3ea; --fail: #b3261e; --fail-bg: #fbe5e3;
+    --mono-bg: #f1efe9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #15171b; --card: #1e2126; --ink: #e8e9ec; --muted: #9a9ea8;
+      --line: #2e323a; --accent: #6fa3d6; --accent-ink: #0f1215;
+      --pass: #5fd39a; --pass-bg: #163326; --fail: #ff8a80; --fail-bg: #3a1b19;
+      --mono-bg: #262a31;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: clamp(11.5px, 1.7vh, 15px)/1.38 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
+
+  /* One screen: header row + grid filling the rest */
+  main {
+    height: 100vh; max-width: 1500px; margin: 0 auto; padding: 12px 16px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  header h1 { font-size: 1.3rem; margin: 0; letter-spacing: -0.01em; }
+  header p { margin: 0; color: var(--muted); font-size: .82rem; }
+  .toolbar { display: flex; gap: 12px; align-items: center; }
+  #summary { font-weight: 600; }
+  #summary.ok { color: var(--pass); }
+  #summary.bad { color: var(--fail); }
+
+  .grid {
+    flex: 1; min-height: 0; display: grid; gap: 10px;
+    grid-template-columns: 1fr 1fr; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  #exp-1 { grid-row: span 2; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 14px; display: flex; flex-direction: column; min-height: 0;
+  }
+  .card-head { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+  .card h2 { font-size: .98rem; margin: 0; }
+  .num { color: var(--accent); margin-right: 5px; }
+  .goal { margin: 1px 0 0; color: var(--muted); font-size: .78rem; }
+  .head-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .score { font-weight: 600; font-size: .8rem; white-space: nowrap; }
+  .body {
+    flex: 1; min-height: 0; overflow-y: auto; margin-top: 6px;
+    border-top: 1px solid var(--line); padding-top: 4px;
+  }
+  .placeholder { color: var(--muted); font-style: italic; margin: 6px 0; }
+
+  button {
+    font: inherit; font-weight: 600; border: 1px solid var(--accent); cursor: pointer;
+    background: var(--accent); color: var(--accent-ink); padding: 5px 14px; border-radius: 7px;
+  }
+  button.secondary { background: transparent; color: var(--accent); }
+  button.small { padding: 3px 12px; font-size: .85rem; }
+  button:disabled { opacity: .55; cursor: wait; }
+
+  /* Experiment steps */
+  .step-info { margin: 3px 0 1px; font-size: .84rem; }
+  .step-data { display: grid; grid-template-columns: 30% 1fr; gap: 8px; font-size: .77rem; padding: 1px 0; }
+  .step-data .label { color: var(--muted); }
+  .step-data .value { background: var(--mono-bg); padding: 0 6px; border-radius: 4px; overflow-wrap: anywhere; }
+  .step-check { display: flex; gap: 8px; align-items: center; margin: 2px 0; font-size: .84rem; }
+  .badge {
+    font-size: .66rem; font-weight: 700; letter-spacing: .04em; padding: 1px 7px;
+    border-radius: 999px; flex-shrink: 0;
+  }
+  .badge.pass { color: var(--pass); background: var(--pass-bg); }
+  .badge.fail { color: var(--fail); background: var(--fail-bg); }
+  .step-head { font-weight: 600; }
+  .step-check .detail { color: var(--muted); font-size: .78rem; }
+
+  /* Form rows (labels beside fields) */
+  .lab-row { display: flex; gap: 8px; align-items: center; margin: 4px 0; }
+  .lab-step { font-size: .78rem; font-weight: 600; white-space: nowrap; width: 46px; color: var(--muted); }
+  .field { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .field.grow { flex: 1; }
+  .field.amt { width: 130px; }
+  .field label { font-size: .75rem; color: var(--muted); white-space: nowrap; }
+  .field input {
+    font: inherit; font-size: .84rem; color: var(--ink); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 6px; padding: 3px 7px; width: 100%; min-width: 0;
+  }
+  .field input.mono { font-size: .72rem; }
+  .field input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .field input.edited { border-color: var(--fail); }
+  .field.sig label { width: 46px; text-align: right; }
+  .hint { color: var(--muted); font-size: .74rem; margin: 2px 0 0 54px; }
+  .verdict { margin-top: 4px; border-radius: 8px; padding: 4px 10px; border: 1px solid; font-size: .78rem; }
+  .verdict.valid { color: var(--pass); background: var(--pass-bg); border-color: var(--pass); }
+  .verdict.rejected { color: var(--fail); background: var(--fail-bg); border-color: var(--fail); }
+  .verdict strong { font-size: .9rem; letter-spacing: .03em; margin-right: 6px; }
+  .verdict p { margin: 1px 0; color: var(--ink); }
+  .error { color: var(--fail); font-size: .78rem; margin: 2px 0 0 54px; }
+  .hidden { display: none !important; }
+
+  /* Automatic / Try it tabs */
+  .tabs { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+  .tabs button {
+    background: transparent; color: var(--muted); border: 0; border-radius: 0;
+    padding: 3px 10px; font-size: .8rem; font-weight: 600;
+  }
+  .tabs button.active { background: var(--accent); color: var(--accent-ink); }
+  .try-intro { color: var(--muted); font-size: .78rem; margin: 4px 0 2px; }
+  .try-row { display: flex; gap: 8px; align-items: center; margin: 3px 0; flex-wrap: wrap; }
+  .try-row .field.name { flex: 1; min-width: 120px; }
+  .try-row .field.num { width: 120px; }
+  .radio { display: inline-flex; gap: 4px; align-items: center; font-size: .8rem; cursor: pointer; }
+  .radio input { margin: 0; }
+  .try-out { margin-top: 4px; border-top: 1px solid var(--line); padding-top: 2px; }
+  .sub { font-weight: 600; font-size: .8rem; margin: 4px 0 1px; }
+
+  /* Small or short screens: stack the cards and let the page scroll */
+  @media (max-width: 900px), (max-height: 560px) {
+    main { height: auto; }
+    .grid { grid-template-columns: 1fr; grid-template-rows: none; }
+    #exp-1 { grid-row: auto; }
+    .body { overflow: visible; }
+  }
+  @media (max-width: 520px) {
+    .lab-row { flex-wrap: wrap; }
+    .field.amt { width: 100%; }
+    .lab-step, .field.sig label { width: auto; text-align: left; }
+    .hint, .error { margin-left: 0; }
+    .step-data { grid-template-columns: 1fr; gap: 0; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Signature Experiments</h1>
+      <p>ECDSA signatures and a Bitcoin-style ledger. Each run uses new random keys.</p>
+    </div>
+    <div class="toolbar">
+      <span id="summary"></span>
+      <button id="run-all">Run all experiments</button>
+    </div>
+  </header>
+
+  <div class="grid" id="cards">
+    <section class="card" id="exp-1">
+      <div class="card-head">
+        <div>
+          <h2><span class="num">1.</span>Signature verification and tampering</h2>
+          <p class="goal">A signature is bound to the exact transaction it signs.</p>
+        </div>
+        <div class="head-right">
+          <div class="tabs" data-card="1"><button class="active" data-tab="auto">Automatic</button><button data-tab="try">Try it</button></div>
+          <button class="secondary small run-btn" data-exp="1">Run</button>
+        </div>
+      </div>
+      <div class="body">
+        <div class="panel-auto results"><p class="placeholder">Not run yet. Click Run.</p></div>
+
+        <div class="panel-try hidden" id="lab">
+          <p class="try-intro">Sign as Alice, then play the attacker: change anything and see if it is still accepted.
+            To change it legitimately, edit Step 1 and sign again.</p>
+          <div class="lab-row">
+            <span class="lab-step">Step 1</span>
+            <div class="field grow"><label for="sign-recipient">Pay to</label>
+              <input id="sign-recipient" value="Bob" maxlength="40"></div>
+            <div class="field amt"><label for="sign-amount">Amount</label>
+              <input id="sign-amount" type="number" value="100" min="1"></div>
+            <button id="sign-btn" class="small">Sign as Alice</button>
+          </div>
+          <div class="error hidden" id="sign-error"></div>
+
+          <p class="hint" id="step2-hint">Sign first. Step 2 then starts as exactly what Alice signed.</p>
+          <div class="hidden" id="tamper-step">
+            <div class="lab-row">
+              <span class="lab-step">Step 2</span>
+              <div class="field grow"><label for="v-recipient">Pay to</label>
+                <input id="v-recipient" maxlength="40"></div>
+              <div class="field amt"><label for="v-amount">Amount</label>
+                <input id="v-amount" type="number" min="1"></div>
+            </div>
+            <div class="lab-row">
+              <div class="field grow sig"><label for="v-r">Sig r</label>
+                <input id="v-r" class="mono" spellcheck="false"></div>
+            </div>
+            <div class="lab-row">
+              <div class="field grow sig"><label for="v-s">Sig s</label>
+                <input id="v-s" class="mono" spellcheck="false"></div>
+            </div>
+            <div class="lab-row">
+              <span class="lab-step"></span>
+              <button id="verify-btn" class="small">Verify</button>
+              <button class="secondary small" id="reset-btn">Reset to what Alice signed</button>
+            </div>
+            <div class="error hidden" id="verify-error"></div>
+            <div class="verdict hidden" id="verdict"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="exp-2">
+      <div class="card-head">
+        <div>
+          <h2><span class="num">2.</span>Conflicting transactions (double spend)</h2>
+          <p class="goal">Two validly signed transactions can conflict; the ledger must choose.</p>
+        </div>
+        <div class="head-right">
+          <div class="tabs" data-card="2"><button class="active" data-tab="auto">Automatic</button><button data-tab="try">Try it</button></div>
+          <button class="secondary small run-btn" data-exp="2">Run</button>
+        </div>
+      </div>
+      <div class="body">
+        <div class="panel-auto results"><p class="placeholder">Not run yet. Click Run.</p></div>
+        <div class="panel-try hidden">
+          <div class="try-row">
+            <div class="field num"><label for="ds-coin">Coin value</label><input id="ds-coin" type="number" value="100" min="1"></div>
+            <span class="field"><label>First to ledger</label></span>
+            <label class="radio"><input type="radio" name="ds-order" value="AB" checked> Tx A</label>
+            <label class="radio"><input type="radio" name="ds-order" value="BA"> Tx B</label>
+          </div>
+          <div class="try-row">
+            <div class="field name"><label for="ds-a-to">Tx A pays</label><input id="ds-a-to" value="Bob" maxlength="40"></div>
+            <div class="field num"><label for="ds-a-amt">Amount</label><input id="ds-a-amt" type="number" value="100" min="1"></div>
+          </div>
+          <div class="try-row">
+            <div class="field name"><label for="ds-b-to">Tx B pays</label><input id="ds-b-to" value="Carol" maxlength="40"></div>
+            <div class="field num"><label for="ds-b-amt">Amount</label><input id="ds-b-amt" type="number" value="100" min="1"></div>
+            <button class="small" id="ds-go">Sign both and send</button>
+          </div>
+          <div class="error hidden" id="ds-error"></div>
+          <div class="try-out hidden" id="ds-out"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="exp-3">
+      <div class="card-head">
+        <div>
+          <h2><span class="num">3.</span>ECDSA nonce reuse</h2>
+          <p class="goal">Reusing the secret nonce reveals the private key.</p>
+        </div>
+        <div class="head-right">
+          <div class="tabs" data-card="3"><button class="active" data-tab="auto">Automatic</button><button data-tab="try">Try it</button></div>
+          <button class="secondary small run-btn" data-exp="3">Run</button>
+        </div>
+      </div>
+      <div class="body">
+        <div class="panel-auto results"><p class="placeholder">Not run yet. Click Run.</p></div>
+        <div class="panel-try hidden">
+          <p class="try-intro">The victim signs two messages; the attacker tries to compute the key from the signatures.</p>
+          <div class="try-row">
+            <div class="field name"><label for="nn-m1">Message 1</label><input id="nn-m1" value="pay Bob 1 BTC" maxlength="200"></div>
+            <div class="field name"><label for="nn-m2">Message 2</label><input id="nn-m2" value="pay Carol 2 BTC" maxlength="200"></div>
+          </div>
+          <div class="try-row">
+            <span class="field"><label>Nonce</label></span>
+            <label class="radio"><input type="radio" name="nn-mode" value="reuse" checked> Reuse the same nonce</label>
+            <label class="radio"><input type="radio" name="nn-mode" value="rfc6979"> Fresh nonce (RFC 6979)</label>
+            <button class="small" id="nn-go">Sign and attack</button>
+          </div>
+          <div class="error hidden" id="nn-error"></div>
+          <div class="try-out hidden" id="nn-out"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+  const results = {};
+
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  function showTab(cardId, tab) {
+    const card = document.getElementById("exp-" + cardId);
+    card.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+    card.querySelector(".panel-auto").classList.toggle("hidden", tab !== "auto");
+    card.querySelector(".panel-try").classList.toggle("hidden", tab !== "try");
+    card.querySelector(".run-btn").classList.toggle("hidden", tab !== "auto");
+  }
+
+  function fillCard(exp) {
+    const card = document.getElementById("exp-" + exp.id);
+    card.querySelectorAll(".score").forEach(n => n.remove());
+    const ok = exp.passed === exp.total;
+    const score = el("span", "score", `${exp.passed}/${exp.total} passed`);
+    score.style.color = ok ? "var(--pass)" : "var(--fail)";
+    card.querySelector(".head-right").prepend(score);
+
+    const body = card.querySelector(".results") || card.querySelector(".body");
+    body.replaceChildren();
+    for (const s of exp.steps) {
+      if (s.kind === "info") {
+        const cls = /^(Step \d|Result)/.test(s.text) ? "step-info step-head" : "step-info";
+        body.append(el("p", cls, s.text));
+      } else if (s.kind === "outcome") {
+        const row = el("div", "step-check");
+        const good = s.status === "VALID" || s.status === "ACCEPTED";
+        row.append(el("span", null, s.text),
+                   el("span", "badge " + (good ? "pass" : "fail"), s.status),
+                   el("span", "detail", s.detail));
+        body.append(row);
+      } else if (s.kind === "data") {
+        const row = el("div", "step-data");
+        row.append(el("span", "label", s.label), el("span", "value mono", s.value));
+        body.append(row);
+      } else {
+        const row = el("div", "step-check");
+        row.append(el("span", "badge " + (s.ok ? "pass" : "fail"), s.ok ? "PASS" : "FAIL"),
+                   el("span", null, s.text));
+        body.append(row);
+      }
+    }
+  }
+
+  function updateSummary() {
+    const done = Object.values(results);
+    const sum = document.getElementById("summary");
+    if (!done.length) { sum.textContent = ""; return; }
+    const p = done.reduce((a, e) => a + e.passed, 0);
+    const t = done.reduce((a, e) => a + e.total, 0);
+    sum.textContent = `${p}/${t} checks passed` + (done.length < 3 ? ` (${done.length} of 3 run)` : "");
+    sum.className = p === t ? "ok" : "bad";
+  }
+
+  async function run(which) {
+    const buttons = document.querySelectorAll("button");
+    buttons.forEach(b => b.disabled = true);
+    try {
+      const res = await fetch("/api/run?exp=" + which);
+      if (!res.ok) throw new Error("Server error " + res.status);
+      for (const exp of await res.json()) { results[exp.id] = exp; fillCard(exp); }
+      updateSummary();
+    } catch (err) {
+      const sum = document.getElementById("summary");
+      sum.textContent = "Could not reach the server. Is app.py still running?";
+      sum.className = "bad";
+    } finally {
+      buttons.forEach(b => b.disabled = false);
+    }
+  }
+
+  // Experiment 1: Try it (Tamper) 
+  const $ = id => document.getElementById(id);
+  let signedTx = null;
+  const editable = { "v-recipient": "recipient", "v-amount": "amount", "v-r": "r", "v-s": "s" };
+
+  async function post(path, body) {
+    const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify(body) });
+    const data = await res.json().catch(() => ({ error: "Server error " + res.status }));
+    if (!res.ok) throw new Error(data.error || "Server error " + res.status);
+    return data;
+  }
+
+  function showError(id, msg) {
+    const e = $(id);
+    e.textContent = msg || "";
+    e.classList.toggle("hidden", !msg);
+  }
+
+  function markEdited() {
+    if (!signedTx) return;
+    for (const [id, key] of Object.entries(editable)) {
+      const val = $(id).value.trim();
+      const orig = String(signedTx[key]);
+      $(id).classList.toggle("edited", key === "r" || key === "s"
+        ? val.toLowerCase() !== orig : val !== orig);
+    }
+    $("verdict").classList.add("hidden");
+  }
+
+  function resetFields() {
+    for (const [id, key] of Object.entries(editable)) $(id).value = signedTx[key];
+    markEdited();
+  }
+
+  $("sign-btn").addEventListener("click", async () => {
+    showError("sign-error");
+    try {
+      signedTx = await post("/api/sign", { recipient: $("sign-recipient").value,
+                                           amount: $("sign-amount").value });
+      $("tamper-step").classList.remove("hidden");
+      $("step2-hint").textContent = "Now edit anything below (even one character of the signature) and click Verify. Edited fields turn red.";
+      resetFields();
+    } catch (err) { showError("sign-error", err.message); }
+  });
+
+  $("reset-btn").addEventListener("click", resetFields);
+  Object.keys(editable).forEach(id => $(id).addEventListener("input", markEdited));
+
+  $("verify-btn").addEventListener("click", async () => {
+    showError("verify-error");
+    try {
+      const v = await post("/api/verify", { recipient: $("v-recipient").value,
+        amount: $("v-amount").value, r: $("v-r").value, s: $("v-s").value });
+      const box = $("verdict");
+      box.className = "verdict " + (v.valid ? "valid" : "rejected");
+      box.replaceChildren();
+      const line1 = el("p");
+      line1.append(el("strong", null, v.valid ? "✓ VALID" : "✗ REJECTED"),
+        "Alice signed: " + v.signed + "  ·  You checked: " + v.checked);
+      box.append(line1);
+      box.append(el("p", null, v.valid
+        ? "Nothing was changed, so Alice's signature matches."
+        : (v.changed.length ? "Changed: " + v.changed.join(", ") + ". " : "") +
+          "The signature no longer matches, so the transaction is refused."));
+    } catch (err) { showError("verify-error", err.message); }
+  });
+
+  //  Experiment 2: Try it 
+  function badgeRow(parts) {
+    const row = el("div", "step-check");
+    for (const [cls, text] of parts) row.append(cls === null ? el("span", null, text) : el("span", cls, text));
+    return row;
+  }
+
+  $("ds-go").addEventListener("click", async () => {
+    showError("ds-error");
+    try {
+      const order = document.querySelector('input[name="ds-order"]:checked').value;
+      const r = await post("/api/doublespend", { coin: $("ds-coin").value, order,
+        a_to: $("ds-a-to").value, a_amount: $("ds-a-amt").value,
+        b_to: $("ds-b-to").value, b_amount: $("ds-b-amt").value });
+      const out = $("ds-out");
+      out.replaceChildren(el("p", "sub", `Step 1: check the signatures (coin worth ${r.coin}).`));
+      for (const sg of r.signatures)
+        out.append(badgeRow([[null, `Tx ${sg.tx} (${sg.desc})`],
+          ["badge " + (sg.valid ? "pass" : "fail"), sg.valid ? "VALID" : "INVALID"], ["detail", "r = " + sg.r]]));
+      out.append(el("p", "sub", "Step 2: the ledger processes them in your order."));
+      r.processed.forEach((pr, i) => out.append(badgeRow([[null, `${i + 1}. Tx ${pr.tx}`],
+        ["badge " + (pr.accepted ? "pass" : "fail"), pr.accepted ? "ACCEPTED" : "REJECTED"],
+        ["detail", pr.accepted ? pr.desc : pr.reason]])));
+      out.append(el("p", "step-info step-head", r.accepted_count === 1
+        ? "Both signatures are valid, but only one spend of the coin is accepted."
+        : r.accepted_count === 0 ? "Neither transaction fits the ledger rules, so both are rejected."
+        : "Both accepted."));
+      out.classList.remove("hidden");
+    } catch (err) { showError("ds-error", err.message); }
+  });
+
+  // --- Experiment 3: Try it 
+  $("nn-go").addEventListener("click", async () => {
+    showError("nn-error");
+    try {
+      const mode = document.querySelector('input[name="nn-mode"]:checked').value;
+      const r = await post("/api/nonce", { message1: $("nn-m1").value, message2: $("nn-m2").value, mode });
+      const out = $("nn-out");
+      out.replaceChildren();
+      out.append(badgeRow([[null, "Same r on both signatures?"], ["badge " + (r.same_r ? "fail" : "pass"), r.same_r ? "YES" : "NO"],
+        ["detail", r.same_r ? "the warning sign" : "fresh nonce per message"]]));
+      for (const [label, value] of [["r of signature 1", r.r1], ["r of signature 2", r.r2],
+                                    ["Recovered private key", r.recovered || "nothing"], ["Victim's real private key", r.real_key]]) {
+        const row = el("div", "step-data");
+        row.append(el("span", "label", label), el("span", "value mono", value));
+        out.append(row);
+      }
+      out.append(badgeRow([[null, "Result"], ["badge " + (r.key_recovered ? "fail" : "pass"),
+        r.key_recovered ? "KEY STOLEN" : "KEY SAFE"], ["detail", r.note]]));
+      out.classList.remove("hidden");
+    } catch (err) { showError("nn-error", err.message); }
+  });
+
+  // --- Wiring 
+  document.querySelectorAll(".tabs").forEach(t => t.addEventListener("click", e => {
+    if (e.target.dataset.tab) showTab(t.dataset.card, e.target.dataset.tab);
+  }));
+  document.querySelectorAll(".run-btn").forEach(b => b.addEventListener("click", () => run(b.dataset.exp)));
+  document.getElementById("run-all").addEventListener("click", () => {
+    [1, 2, 3].forEach(id => showTab(id, "auto"));
+    run("all");
+  });
+</script>
+</body>
+</html>
